@@ -23,6 +23,10 @@ export function _firebaseAppFactory(config: FirebaseAppConfig, appName?: string)
     }
   }
   catch (e) {
-    return firebase.app(null);
+    if (e.code === "app/duplicate-app") {
+      return firebase.app(e.name);
+    }
+
+    return firebase.app(null!);
   }
 }

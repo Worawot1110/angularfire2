@@ -27,13 +27,9 @@ const firebaseUser = <firebase.User> {
 
 describe('AngularFireAuth', () => {
   let app: firebase.app.App;
-  let authData: any;
-  let authCb: any;
   let afAuth: AngularFireAuth;
   let authSpy: jasmine.Spy;
   let mockAuthState: Subject<firebase.User>;
-  let fbAuthObserver: Observer<firebase.User>;
-  let windowLocation: any;
 
   beforeEach(() => {
     TestBed.configureTestingModule({
@@ -45,13 +41,13 @@ describe('AngularFireAuth', () => {
     inject([FirebaseApp, AngularFireAuth], (app_: FirebaseApp, _auth: AngularFireAuth) => {
       app = app_;
       afAuth = _auth;
-      authData = null;
-      authCb = null;
     })();
 
     mockAuthState = new Subject<firebase.User>();
     spyOn(afAuth, 'authState').and.returnValue(mockAuthState);
-    afAuth.authState = mockAuthState;
+    spyOn(afAuth, 'idToken').and.returnValue(mockAuthState);
+    afAuth.authState = mockAuthState as Observable<firebase.User>;
+    afAuth.idToken = mockAuthState as Observable<firebase.User>;
   });
 
   afterEach(done => {
@@ -65,12 +61,18 @@ describe('AngularFireAuth', () => {
         name: 'ngZone'
       });
       ngZone.run(() => {
-        const subs = afAuth.authState.subscribe(user => {
-          expect(Zone.current.name).toBe('ngZone');
-          done();
-        }, done.fail);
+        const subs = [
+          afAuth.authState.subscribe(user => {
+            expect(Zone.current.name).toBe('ngZone');
+            done();
+          }, done.fail),
+          afAuth.authState.subscribe(user => {
+            expect(Zone.current.name).toBe('ngZone');
+            done();
+          }, done.fail)
+        ];
         mockAuthState.next(firebaseUser);
-        subs.unsubscribe();
+        subs.forEach(s => s.unsubscribe());
       });
     });
   });
@@ -89,7 +91,7 @@ describe('AngularFireAuth', () => {
     // Check that the first value is null and second is the auth user
     const subs = afAuth.authState.subscribe(user => {
       if (count === 0) {
-        expect(user).toBe(null);
+        expect(user).toBe(null!);
         count = count + 1;
         mockAuthState.next(firebaseUser);
       } else {
@@ -98,7 +100,25 @@ describe('AngularFireAuth', () => {
         done();
       }
     }, done, done.fail);
-    mockAuthState.next(null);
+    mockAuthState.next(null!);
+  });
+
+  it('should emit auth updates through idToken', (done: any) => {
+    let count = 0;
+    
+    // Check that the first value is null and second is the auth user
+    const subs = afAuth.idToken.subscribe(user => {
+      if (count === 0) {
+        expect(user).toBe(null!);
+        count = count + 1;
+        mockAuthState.next(firebaseUser);
+      } else {
+        expect(user).toEqual(firebaseUser);
+        subs.unsubscribe();
+        done();
+      }
+    }, done, done.fail);
+    mockAuthState.next(null!);
   });
 
 });

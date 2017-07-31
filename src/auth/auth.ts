@@ -17,12 +17,18 @@ export class AngularFireAuth {
   auth: firebase.auth.Auth;
 
   /**
-   * Observable of authentication state
+   * Observable of authentication state; as of 4.0 this is only triggered via sign-in/out
    */
   authState: Observable<firebase.User>;
 
+  /**
+   * Observable of the signed-in user's ID token; which includes sign-in, sign-out, and token refresh events
+   */
+  idToken: Observable<firebase.User>;
+
   constructor(public app: FirebaseApp) {
     this.authState = FirebaseAuthStateObservable(app);
+    this.idToken = FirebaseIdTokenObservable(app);
     this.auth = app.auth();
   }
 
@@ -36,10 +42,26 @@ export class AngularFireAuth {
 export function FirebaseAuthStateObservable(app: FirebaseApp): Observable<firebase.User> {
   const authState = Observable.create((observer: Observer<firebase.User>) => {
     app.auth().onAuthStateChanged(
-      (user?: firebase.User) => observer.next(user),
+      (user?: firebase.User) => observer.next(user!),
       (error: firebase.auth.Error) => observer.error(error),
       () => observer.complete()
     );
   });
   return observeOn.call(authState, new utils.ZoneScheduler(Zone.current));
+}
+
+/**
+ * Create an Observable of Firebase ID token. Each event is called
+ * within the current zone.
+ * @param app - Firebase App instance
+ */
+export function FirebaseIdTokenObservable(app: FirebaseApp): Observable<firebase.User> {
+  const idToken = Observable.create((observer: Observer<firebase.User>) => {
+    app.auth().onIdTokenChanged(
+      (user?: firebase.User) => observer.next(user!),
+      (error: firebase.auth.Error) => observer.error(error),
+      () => observer.complete()
+    )
+  });
+  return observeOn.call(idToken, new utils.ZoneScheduler(Zone.current));
 }
